@@ -1,75 +1,64 @@
-name: Build and Release
+name: actions
 
-# 触发条件：推送以 v 开头的标签（如 v1.0.0）
 on:
+  workflow_dispatch:  # 允许通过网页手动触发
   push:
-    tags:
-      - 'v*'
+  pull_request:
 
 jobs:
-  build-and-release:
-    name: Build and Release
+  test:
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
-        # 目标平台：Linux、macOS、Windows（根据需求调整）
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        include:
-          - os: ubuntu-latest
-            artifact_name: packmol-linux
-            archive_ext: .tar.gz
-          - os: macos-latest
-            artifact_name: packmol-macos
-            archive_ext: .tar.gz
-          - os: windows-latest
-            artifact_name: packmol-windows
-            archive_ext: .zip
+        # windows-latest is disabled due to cmake failure:
+        # https://github.com/awvwgk/setup-fortran/issues/6
+        os: [ubuntu-latest, macOS-latest]
+        gcc_version: [13]
+        compiler: ['make', 'cmake']
 
     steps:
-      # 1. 检出代码
-      - name: Checkout code
-        uses: actions/checkout@v4
+    - uses: actions/checkout@v3
+    - uses: fortran-lang/setup-fortran@main
+      id: setup-fortran
+      with:
+        compiler: gcc
+        version: ${{ matrix.gcc_version }}
 
-      # 2. 安装 Fortran 编译器（自动匹配系统）
-      - name: Setup Fortran
-        uses: fortran-lang/setup-fortran@main
+    - name: Compile using make
+      if: matrix.compiler == 'make'
+      run: |
+        ./configure
+        make
+      shell: bash
+
+    - name: Compile using cmake
+      if: matrix.compiler == 'cmake'
+      run: |
+        cmake ./ && cmake --build ./
+      shell: bash
+
+    - name: Run
+      run: |
+          cd testing
+          ./install_julia.sh
+          ./test.sh
+      shell: bash
+
+  compile-exe:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: fortran-lang/setup-fortran@main
         with:
-          compiler: gcc  # 使用 GCC 自带的 gfortran
-
-      # 3. 编译项目（使用 Makefile）
-      - name: Compile with Make
+          compiler: gfortran
+      - name: Compile using Make
         run: |
-          ./configure  # 运行配置脚本（你的仓库已包含）
-          make         # 执行编译（生成 packmol 可执行文件）
-
-      # 4. 打包可执行文件（根据平台调整格式）
-      - name: Package executable
-        run: |
-          # Linux/macOS 使用 tar.gz，Windows 使用 zip
-          if [ "$RUNNER_OS" == "Windows" ]; then
-            7z a ${{ matrix.artifact_name }}${{ matrix.archive_ext }} packmol.exe
-          else
-            tar -czf ${{ matrix.artifact_name }}${{ matrix.archive_ext }} packmol
-          fi
-
-      # 5. 创建 GitHub Release 并上传资产
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ./configure
+          make
+        shell: bash
+      - name: Upload executable
+        uses: actions/upload-artifact@v3
         with:
-          tag_name: ${{ github.ref_name }}
-          release_name: Release ${{ github.ref_name }}
-          draft: false
-          prerelease: false
-
-      - name: Upload Release Asset
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ${{ matrix.artifact_name }}${{ matrix.archive_ext }}
-          asset_name: ${{ matrix.artifact_name }}${{ matrix.archive_ext }}
-          asset_content_type: application/octet-stream
+          name: packmol-exe
+          path: packmol.exe
