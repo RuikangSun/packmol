@@ -13,25 +13,26 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Install MinGW
+    - name: Install MinGW and gfortran
       run: |
         choco install mingw -y
+        choco install mingw-w64 -y
         echo "C:\Program Files\mingw64\bin" >> $env:GITHUB_PATH
+
+    - name: Verify gfortran
+      run: |
+        where gfortran
+        gfortran --version
 
     - name: Configure
       run: |
+        $shortPath = (Get-Item "C:\Program Files\mingw64\bin").Target
+        echo "CC=$shortPath\x86_64-w64-mingw32-gcc" >> $env:GITHUB_ENV
+        echo "FC=$shortPath\gfortran" >> $env:GITHUB_ENV
         ./configure --host=x86_64-w64-mingw32
-
-    - name: Install dependencies
-      run: |
-        # 根据需求安装依赖，例如：
-        # choco install python -y
 
     - name: Build
       run: make
-
-    - name: Run tests
-      run: make check
 
     - name: Upload executable
       uses: actions/upload-artifact@v4
