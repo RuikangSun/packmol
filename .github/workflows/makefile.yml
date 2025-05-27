@@ -1,0 +1,40 @@
+name: Makefile CI
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install MinGW
+      run: |
+        choco install mingw -y
+        echo "C:\Program Files\mingw64\bin" >> $env:GITHUB_PATH
+
+    - name: Configure
+      run: |
+        ./configure --host=x86_64-w64-mingw32
+
+    - name: Install dependencies
+      run: |
+        # 根据需求安装依赖，例如：
+        # choco install python -y
+
+    - name: Build
+      run: make
+
+    - name: Run tests
+      run: make check
+
+    - name: Upload executable
+      uses: actions/upload-artifact@v4
+      with:
+        name: myapp.exe
+        path: path/to/your/binary/myapp.exe
