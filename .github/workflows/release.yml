@@ -1,47 +1,52 @@
 name: Compile EXE (Manual Trigger)
 
 on:
-  workflow_dispatch:
+  workflow_dispatch:  # 网页手动触发
 
 jobs:
   compile-exe:
     runs-on: windows-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      # 步骤 1：检出代码
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - name: Install MSYS2 with MinGW64 tools
-        uses: msys2/setup-msys2@v2
+      # 步骤 2：部署 MSYS2 环境（使用 ilammy/msys2@v5）
+      - name: Setup MSYS2 with MinGW64
+        uses: ilammy/msys2@v5
         with:
-          msystem: MINGW64  # 64 位 MinGW 环境
+          # 选择 64 位 MinGW 环境（MINGW64）
+          msystem: MINGW64
+          # 自动更新 MSYS2 基础包
           update: true
+          # 安装 MinGW 工具链（包含 gfortran）和编译依赖
           install: |
             mingw-w64-x86_64-gcc
             mingw-w64-x86_64-make
             mingw-w64-x86_64-cmake
             base-devel
 
-      - name: Verify gfortran installation
+      # 步骤 3：验证 gfortran 安装（调试用）
+      - name: Verify gfortran
         run: |
-          which gfortran
+          which gfortran  # 输出路径应为 /mingw64/bin/gfortran
           gfortran --version
-        shell: msys2 {0}
+        shell: msys2 {0}  # 使用 MSYS2 的 bash 执行
 
-      - name: Add MinGW path to environment
+      # 步骤 4：编译项目（显式指定 Fortran 编译器路径）
+      - name: Configure and compile
         run: |
-          echo "/mingw64/bin" >> $GITHUB_PATH
-        shell: msys2 {0}
-
-      - name: Compile with Make (Specify Compiler)
-        run: |
-          ./configure /mingw64/bin/gfortran  # 显式指定编译器路径
+          # 显式指定 gfortran 路径，避免 configure 脚本检测失败
+          ./configure /mingw64/bin/gfortran
           make
-        shell: msys2 {0}
+        shell: msys2 {0}  # 关键：使用 MSYS2 的 bash 确保路径兼容
 
-      - name: Package executable
+      # 步骤 5：打包可执行文件
+      - name: Package EXE
         run: 7z a packmol-windows.zip packmol.exe
-        shell: bash
+        shell: bash  # 普通 bash 即可（7z 是 Windows 工具）
 
+      # 步骤 6：发布到 GitHub Releases
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
