@@ -1,36 +1,43 @@
 name: Compile EXE (Manual Trigger)
 
 on:
-  workflow_dispatch:  # 允许网页手动触发
+  workflow_dispatch:
 
 jobs:
   compile-exe:
     runs-on: windows-latest
     steps:
-      # 步骤 1：检出代码
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # 步骤 2：安装 MSYS2（含 MinGW 64 位工具链）
       - name: Install MSYS2 with MinGW64 tools
         uses: msys2/setup-msys2@v2
         with:
-          msystem: MINGW64  # 指定 64 位 MinGW 环境
-          update: true      # 更新 MSYS2 基础包
-          install: |        # 安装 64 位 MinGW 工具链（关键修改！）
+          msystem: MINGW64  # 64 位 MinGW 环境
+          update: true
+          install: |
             mingw-w64-x86_64-gcc
             mingw-w64-x86_64-make
             mingw-w64-x86_64-cmake
             base-devel
 
-      # 步骤 3：编译项目（使用 MSYS2 的 bash）
-      - name: Compile with Make
+      - name: Verify gfortran installation
         run: |
-          ./configure
-          make
-        shell: msys2 {0}  # 使用 MSYS2 的 bash 执行脚本（确保路径和命令兼容）
+          which gfortran
+          gfortran --version
+        shell: msys2 {0}
 
-      # 步骤 4：打包并上传 EXE
+      - name: Add MinGW path to environment
+        run: |
+          echo "/mingw64/bin" >> $GITHUB_PATH
+        shell: msys2 {0}
+
+      - name: Compile with Make (Specify Compiler)
+        run: |
+          ./configure /mingw64/bin/gfortran  # 显式指定编译器路径
+          make
+        shell: msys2 {0}
+
       - name: Package executable
         run: 7z a packmol-windows.zip packmol.exe
         shell: bash
