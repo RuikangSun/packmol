@@ -18,10 +18,10 @@ jobs:
           msystem: MINGW64  # 指定 64 位 MinGW 环境
           update: true      # 更新 MSYS2 基础包
           install: |        # 安装 64 位 MinGW 工具链（关键修改！）
-            mingw-w64-x86_64-gcc       # 64 位 GCC（含 gfortran）
-            mingw-w64-x86_64-make      # 64 位 make
-            mingw-w64-x86_64-cmake     # 64 位 CMake
-            base-devel                  # MSYS 基础开发工具（如 bash、coreutils）
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-make
+            mingw-w64-x86_64-cmake
+            base-devel
 
       # 步骤 3：编译项目（使用 MSYS2 的 bash）
       - name: Compile with Make
